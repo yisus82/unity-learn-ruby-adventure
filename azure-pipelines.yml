@@ -1,19 +1,44 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
-
 trigger:
 - main
 
 pool:
-  vmImage: ubuntu-latest
+  vmImage: windows-latest
 
 steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
 
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+- task: UnityGetProjectVersionTask@1
+  name: unitygetprojectversion
+  inputs:
+    unityProjectPath: 'TheMostAwesomeGameEverMade/'
+
+- task: UnitySetupTask@1
+  inputs:
+    versionSelectionMode: 'specify'
+    version: '$(unitygetprojectversion.projectVersion)'
+    revision: '$(unitygetprojectversion.projectVersionRevision)'
+    installWindowsIL2CPPModule: true
+
+- task: UnityBuildTask@3
+  inputs:
+    buildTarget: 'standalone'
+    unityProjectPath: 'TheMostAwesomeGameEverMade/'
+    versionSelectionMode: 'project'
+    outputPath: '$(Build.BinariesDirectory)'
+    outputFileName: 'TheMostAwesomeGameEverMade'
+
+# Copy build output files to artifact staging directory.
+- task: CopyFiles@2
+  inputs:
+    SourceFolder: $(Build.BinariesDirectory)
+    Contents: '**'
+    TargetFolder: $(Build.ArtifactStagingDirectory)
+    CleanTargetFolder: true
+    OverWrite: true
+
+# Finally publish all items in artifact staging to the Azure Pipelines
+# artifact storage. They will be available for sharing and/or further processing there.
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: $(Build.ArtifactStagingDirectory)
+    ArtifactName: drop
+    publishLocation: Container
